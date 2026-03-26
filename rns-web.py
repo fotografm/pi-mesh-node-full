@@ -673,13 +673,13 @@ html, body { background: #0a0a0a; width: 100%; height: 100%; overflow: hidden; f
 <body>
 <div id="container">
   <div id="left-col">
-    <iframe id="sdr-frame" src="http://10.42.0.1:8080" title="SDR"></iframe>
+    <iframe id="sdr-frame" src="" title="SDR"></iframe>
     <div id="left-divider"></div>
-    <iframe id="map-frame" src="http://10.42.0.1:8086" title="Node Map"></iframe>
+    <iframe id="map-frame" src="" title="Node Map"></iframe>
   </div>
   <div id="divider"></div>
   <div id="right-col">
-    <iframe id="rns-frame" src="http://10.42.0.1:8082" title="RNS Live"></iframe>
+    <iframe id="rns-frame" src="" title="RNS Live"></iframe>
     <div id="noise-panel">
       <div id="noise-titlebar">
         <span>RNode Noise Floor - 5 min</span>
@@ -695,6 +695,12 @@ html, body { background: #0a0a0a; width: 100%; height: 100%; overflow: hidden; f
 <script>
 'use strict';
 var wsHost = window.location.hostname;
+var baseUrl = 'http://' + wsHost;
+
+// Set iframe sources dynamically
+document.getElementById('sdr-frame').src = baseUrl + ':8080';
+document.getElementById('map-frame').src = baseUrl + ':8086';
+document.getElementById('rns-frame').src = baseUrl + ':8082';
 
 // Noise chart - init after layout via requestAnimationFrame
 var MAX_POINTS = 300;
@@ -955,9 +961,6 @@ TERM_PAGE_HTML = b"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>raspi20 - Terminal</title>
-<link rel="stylesheet" href="http://10.42.0.1:8082/xterm.css">
-<script src="http://10.42.0.1:8082/xterm.js"></script>
-<script src="http://10.42.0.1:8082/addon-fit.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font-family: monospace; }
@@ -989,6 +992,26 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font
 <script>
 'use strict';
 var wsHost   = window.location.hostname;
+var baseUrl  = 'http://' + wsHost;
+
+// Inject xterm static files dynamically
+var _css = document.createElement('link');
+_css.rel = 'stylesheet';
+_css.href = baseUrl + ':8082/xterm.css';
+document.head.appendChild(_css);
+
+function _loadScript(src, cb) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = cb;
+    document.head.appendChild(s);
+}
+_loadScript(baseUrl + ':8082/xterm.js', function() {
+    _loadScript(baseUrl + ':8082/addon-fit.js', initTerminal);
+});
+
+function initTerminal() {
+
 var statusEl = document.getElementById('conn-status');
 
 var term = new Terminal({
