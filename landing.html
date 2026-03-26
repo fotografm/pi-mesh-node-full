@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>raspi20</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #0a0a10;
+    color: #ddd;
+    font-family: monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    gap: 20px;
+}
+
+/* ── Title ───────────────────────────────────────────────────────────────── */
+#title {
+    font-size: 11px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: #999;
+    align-self: stretch;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #1a1a2a;
+}
+
+/* ── Clock ───────────────────────────────────────────────────────────────── */
+#clock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+#clock-time {
+    font-size: 36px;
+    letter-spacing: 4px;
+    color: #3a8a3a;
+}
+#clock-date {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #ccc;
+    text-transform: uppercase;
+}
+
+/* ── Main buttons row ────────────────────────────────────────────────────── */
+#main-btn-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+}
+#btn-combined, #btn-map {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 18px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+#btn-combined { background: #0d0d22; border: 2px solid #2a2a5a; }
+#btn-combined:hover { background: #111133; border-color: #4a4a9a; }
+#btn-map { background: #0a1a12; border: 2px solid #1a3a2a; }
+#btn-map:hover { background: #0d2218; border-color: #2a6a4a; }
+.btn-icon { font-size: 26px; }
+.btn-label {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #8888cc;
+}
+#btn-map .btn-label { color: #4aaa7a; }
+.btn-sub {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #555;
+    text-transform: uppercase;
+}
+
+/* ── Small buttons row ───────────────────────────────────────────────────── */
+#btn-row {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 480px;
+}
+.btn-small {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px 10px;
+    background: #111122;
+    border: 2px solid #222233;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: monospace;
+    transition: background 0.15s, border-color 0.15s;
+}
+.btn-small:hover { background: #111122; }
+.btn-small .btn-icon { font-size: 20px; }
+.btn-small .btn-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #ccc;
+}
+
+.btn-notes  { border-color: #1e3a1e; }
+.btn-notes:hover  { border-color: #3a8a3a; }
+.btn-notes .btn-label  { color: #4aaa4a; }
+
+.btn-terminal { border-color: #1a2a1a; }
+.btn-terminal:hover { border-color: #2a6a4a; }
+.btn-terminal .btn-label { color: #4aaa7a; }
+
+.btn-shutdown { border-color: #3a1a1a; }
+.btn-shutdown:hover { border-color: #aa3333; }
+.btn-shutdown .btn-label { color: #dd5555; }
+.btn-shutdown .btn-icon { color: #dd5555; }
+
+/* ── Notepad widget ──────────────────────────────────────────────────────── */
+#notepad-section {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+#notepad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#notepad-header span {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #555566;
+}
+#notepad-status {
+    font-size: 9px;
+    color: #1a3a1a;
+    letter-spacing: 1px;
+}
+#notepad {
+    width: 100%;
+    height: 120px;
+    background: #111122;
+    border: 1px solid #222233;
+    border-radius: 4px;
+    color: #ccc;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    resize: vertical;
+    outline: none;
+    line-height: 1.5;
+}
+#notepad:focus { border-color: #2a2a4a; color: #ccc; }
+
+/* ── Shutdown modal ──────────────────────────────────────────────────────── */
+#shutdown-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+#shutdown-modal.visible { display: flex; }
+#shutdown-box {
+    background: #111120;
+    border: 2px solid #5a2a2a;
+    border-radius: 8px;
+    padding: 28px 32px;
+    max-width: 320px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+#shutdown-box h2 { font-size: 13px; color: #dd5555; letter-spacing: 2px; }
+#shutdown-box p  { font-size: 11px; color: #ccc; line-height: 1.6; }
+.modal-buttons { display: flex; gap: 12px; justify-content: center; }
+.modal-btn {
+    padding: 8px 20px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid #3a3a4a;
+    background: #1a1a22;
+    color: #999;
+}
+.modal-btn-confirm { border-color: #8a2a2a; color: #dd5555; }
+.modal-btn-confirm:hover { background: #1a0a0a; }
+.modal-btn:hover { background: #161616; }
+#shutdown-countdown { font-size: 11px; color: #999; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<div id="title">raspi20</div>
+
+<div id="clock">
+    <div id="clock-time">00:00:00</div>
+    <div id="clock-date">—</div>
+</div>
+
+<div id="main-btn-row">
+    <a id="btn-combined" href="#" target="_blank">
+        <span class="btn-icon">📡</span>
+        <span class="btn-label">SDR + Reticulum</span>
+        <span class="btn-sub">Combined · Port 8084</span>
+    </a>
+    <a id="btn-map" href="#" target="_blank">
+        <span class="btn-icon">🎯</span>
+        <span class="btn-label">Node Map</span>
+        <span class="btn-sub">Dartboard · Port 8086</span>
+    </a>
+</div>
+
+<div id="btn-row">
+    <a class="btn-small btn-notes" id="btn-notes" href="#" target="_blank">
+        <span class="btn-icon">📝</span>
+        <span class="btn-label">Notes</span>
+    </a>
+    <a class="btn-small btn-terminal" id="btn-terminal" href="#" target="_blank">
+        <span class="btn-icon">⌨️</span>
+        <span class="btn-label">Terminal</span>
+    </a>
+    <button class="btn-small btn-shutdown" onclick="showShutdown()">
+        <span class="btn-icon">⏻</span>
+        <span class="btn-label">Shutdown</span>
+    </button>
+</div>
+
+<div id="notepad-section">
+    <div id="notepad-header">
+        <span>Quick Note</span>
+        <span id="notepad-status"></span>
+    </div>
+    <textarea id="notepad" placeholder="Type a quick note…"></textarea>
+</div>
+
+<!-- Shutdown modal -->
+<div id="shutdown-modal">
+    <div id="shutdown-box">
+        <h2>⏻ Shutdown raspi20?</h2>
+        <p>Wait 10 seconds after confirming<br>before removing power.</p>
+        <div class="modal-buttons">
+            <button class="modal-btn" onclick="hideShutdown()">Cancel</button>
+            <button class="modal-btn modal-btn-confirm" onclick="confirmShutdown()">Shut Down</button>
+        </div>
+        <div id="shutdown-countdown"></div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+const h = window.location.hostname;
+document.getElementById('btn-combined').href = `http://${h}:8084`;
+document.getElementById('btn-map').href      = `http://${h}:8086`;
+document.getElementById('btn-notes').href    = `http://${h}/notes.html`;
+document.getElementById('btn-terminal').href = `http://${h}:8087`;
+
+// ── Clock ──────────────────────────────────────────────────────────────────
+const DAYS   = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
+                'Jul','Aug','Sep','Oct','Nov','Dec'];
+function pad(n) { return String(n).padStart(2,'0'); }
+
+function tick() {
+    const now = new Date();
+    document.getElementById('clock-time').textContent =
+        pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    document.getElementById('clock-date').textContent =
+        DAYS[now.getDay()] + '  ' + pad(now.getDate()) + ' ' +
+        MONTHS[now.getMonth()] + ' ' + now.getFullYear();
+}
+tick();
+setInterval(tick, 1000);
+
+// ── Notepad auto-save ──────────────────────────────────────────────────────
+const notepad = document.getElementById('notepad');
+const notepadStatus = document.getElementById('notepad-status');
+let saveTimer = null;
+
+fetch('/notes')
+    .then(r => r.text())
+    .then(t => { notepad.value = t; })
+    .catch(() => {});
+
+notepad.addEventListener('input', () => {
+    notepadStatus.textContent = 'unsaved…';
+    notepadStatus.style.color = '#3a3a2a';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        fetch('/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: notepad.value,
+        }).then(() => {
+            notepadStatus.textContent = 'saved ✓';
+            notepadStatus.style.color = '#1a4a1a';
+        }).catch(() => {
+            notepadStatus.textContent = 'save failed';
+            notepadStatus.style.color = '#4a1a1a';
+        });
+    }, 1500);
+});
+
+// ── Shutdown modal ──────────────────────────────────────────────────────────
+function showShutdown() {
+    document.getElementById('shutdown-modal').classList.add('visible');
+    document.querySelector('.modal-buttons').style.display = 'flex';
+    document.getElementById('shutdown-countdown').textContent = '';
+}
+function hideShutdown() {
+    document.getElementById('shutdown-modal').classList.remove('visible');
+}
+function confirmShutdown() {
+    document.querySelector('.modal-buttons').style.display = 'none';
+    const cd = document.getElementById('shutdown-countdown');
+    cd.textContent = 'Sending shutdown command…';
+    fetch('/shutdown', { method: 'POST' })
+        .then(() => { cd.textContent = 'Shutting down… wait 10s before removing power.'; })
+        .catch(() => { cd.textContent = 'Shutdown command sent.'; });
+}
+</script>
+</body>
+</html>

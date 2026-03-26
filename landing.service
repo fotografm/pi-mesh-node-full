@@ -1,0 +1,14 @@
+[Unit]
+Description=raspi20 Landing Page Server
+After=network.target
+
+[Service]
+Type=simple
+User=user
+ExecStart=/usr/bin/python3 /home/user/landing-server.py
+WorkingDirectory=/home/user
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

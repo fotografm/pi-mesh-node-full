@@ -1,0 +1,18 @@
+[package]
+name = "sdr-ws"
+version = "0.3.0"
+edition = "2021"
+
+[[bin]]
+name = "sdr-ws"
+path = "src/main.rs"
+
+[dependencies]
+rtl-sdr-rs        = "0.1"
+rustfft           = "6"
+tokio             = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.27"
+futures-util      = "0.3"
+num-complex       = "0.4"
+serde             = { version = "1", features = ["derive"] }
+serde_json        = "1"

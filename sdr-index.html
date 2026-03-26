@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDR Waterfall</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #0a0a0a;
+    color: #ccc;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* \u2500\u2500 Header \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+#header {
+    padding: 5px 12px;
+    background: #111;
+    font-size: 12px;
+    color: #aaa;
+    flex-shrink: 0;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+#header-info { flex: 1; }
+#header-btns { display: flex; gap: 6px; }
+#header-btns button {
+    background: #222;
+    border: 1px solid #333;
+    color: #aaa;
+    font-size: 14px;
+    width: 28px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 3px;
+    line-height: 1;
+    padding: 0;
+}
+#header-btns button:hover { background: #333; color: #fff; }
+#shutdown-btn:hover { background: #5a1a1a !important; color: #f88 !important; }
+
+/* \u2500\u2500 Canvases \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+#spectrum-canvas {
+    flex: 1;
+    width: 100%;
+    display: block;
+    min-height: 0;
+}
+#wf-label {
+    padding: 2px 12px;
+    font-size: 10px;
+    color: #555;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+#waterfall-canvas {
+    flex: 2;
+    width: 100%;
+    display: block;
+    min-height: 0;
+}
+#freq-axis {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    font-size: 10px;
+    color: #555;
+    flex-shrink: 0;
+    background: #0a0a0a;
+}
+#freq-axis span { flex: 1; text-align: center; }
+#freq-axis span:first-child { text-align: left;  padding-left:  4px; }
+#freq-axis span:last-child  { text-align: right; padding-right: 4px; }
+#status {
+    padding: 2px 12px;
+    font-size: 10px;
+    color: #555;
+    background: #0a0a0a;
+    flex-shrink: 0;
+}
+
+/* \u2500\u2500 Settings overlay \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+#settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 100;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+}
+#settings-overlay.hidden { display: none; }
+
+#settings-panel {
+    background: #141420;
+    border-left: 1px solid #2a2a3a;
+    width: 320px;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #1a1a28;
+    border-bottom: 1px solid #2a2a3a;
+    font-size: 13px;
+    color: #cba6f7;
+    flex-shrink: 0;
+}
+#settings-header span { font-weight: bold; }
+#close-settings {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 2px;
+}
+#close-settings:hover { color: #fff; }
+
+/* Preset section */
+#preset-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid #2a2a3a;
+}
+#preset-section label {
+    display: block;
+    font-size: 10px;
+    color: #777;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+#preset-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+#preset-select {
+    flex: 1;
+    background: #0e0e1c;
+    border: 1px solid #2a2a3a;
+    color: #cdd6f4;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 4px 6px;
+    border-radius: 3px;
+}
+.preset-btn {
+    background: #222233;
+    border: 1px solid #2a2a3a;
+    color: #cdd6f4;
+    font-family: monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+.preset-btn:hover { background: #2a2a44; }
+#delete-preset-btn { color: #f38ba8; }
+#delete-preset-btn:hover { background: #3a1a22; }
+
+/* Parameter fields */
+#param-section {
+    padding: 12px 14px;
+    flex: 1;
+}
+#param-section > .section-title {
+    font-size: 10px;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+.field-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+}
+.field-row label {
+    font-size: 11px;
+    color: #888;
+    flex: 1;
+}
+.field-row input {
+    width: 100px;
+    background: #0e0e1c;
+    border: 1px solid #2a2a3a;
+    color: #cdd6f4;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    text-align: right;
+}
+.field-row input:focus {
+    outline: none;
+    border-color: #cba6f7;
+}
+
+/* Action buttons */
+#action-section {
+    padding: 12px 14px;
+    border-top: 1px solid #2a2a3a;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex-shrink: 0;
+}
+.action-btn {
+    padding: 7px 12px;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 3px;
+    border: 1px solid transparent;
+}
+#apply-btn {
+    background: #1e4a1e;
+    color: #a6e3a1;
+    border-color: #2a6a2a;
+}
+#apply-btn:hover { background: #276027; }
+#save-preset-btn {
+    background: #1e2a4a;
+    color: #89b4fa;
+    border-color: #2a3a6a;
+}
+#save-preset-btn:hover { background: #253560; }
+
+</style>
+</head>
+<body>
+
+<!-- \u2500\u2500 Main UI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -->
+<div id="header">
+    <div id="header-info">
+        SDR Spectrum &nbsp;|&nbsp;
+        <span id="h-freq">869.525</span> MHz &nbsp;|&nbsp;
+        BW <span id="h-rate">2.000</span> MHz &nbsp;|&nbsp;
+        Gain <span id="h-gain">33.8</span> dB
+    </div>
+    <div id="header-btns">
+        <button id="settings-btn" title="Settings">&#9881;</button>
+        <button id="shutdown-btn" title="Shutdown Pi">&#9211;</button>
+    </div>
+</div>
+
+<canvas id="spectrum-canvas"></canvas>
+<div id="wf-label">Waterfall</div>
+<canvas id="waterfall-canvas"></canvas>
+<div id="freq-axis"></div>
+<div id="status">Connecting...</div>
+
+<!-- \u2500\u2500 Settings panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 -->
+<div id="settings-overlay" class="hidden">
+    <div id="settings-panel">
+        <div id="settings-header">
+            <span>\u2699 Settings</span>
+            <button id="close-settings">\u2715</button>
+        </div>
+
+        <div id="preset-section">
+            <label>Saved Presets</label>
+            <div id="preset-row">
+                <select id="preset-select"></select>
+                <button class="preset-btn" id="load-preset-btn">Load</button>
+                <button class="preset-btn" id="delete-preset-btn">Delete</button>
+            </div>
+        </div>
+
+        <div id="param-section">
+            <div class="section-title">Parameters</div>
+
+            <div class="field-row">
+                <label>Centre Freq (MHz)</label>
+                <input type="number" id="s-freq" step="0.001" min="25" max="1750">
+            </div>
+            <div class="field-row">
+                <label>Sample Rate (MHz)</label>
+                <input type="number" id="s-rate" step="0.001" min="0.225" max="3.2">
+            </div>
+            <div class="field-row">
+                <label>Gain (dB)</label>
+                <input type="number" id="s-gain" step="0.1" min="0" max="50">
+            </div>
+            <div class="field-row">
+                <label>Spectrum Min (dBFS)</label>
+                <input type="number" id="s-spec-min" step="1" min="-120" max="0">
+            </div>
+            <div class="field-row">
+                <label>Spectrum Max (dBFS)</label>
+                <input type="number" id="s-spec-max" step="1" min="-120" max="0">
+            </div>
+            <div class="field-row">
+                <label>Waterfall Min (dBFS)</label>
+                <input type="number" id="s-wf-min" step="1" min="-120" max="0">
+            </div>
+            <div class="field-row">
+                <label>Waterfall Max (dBFS)</label>
+                <input type="number" id="s-wf-max" step="1" min="-120" max="0">
+            </div>
+        </div>
+
+        <div id="action-section">
+            <button class="action-btn" id="apply-btn">\u25b6  Apply</button>
+            <button class="action-btn" id="save-preset-btn">\ud83d\udcbe  Save as Preset\u2026</button>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// \u2500\u2500 Binary frame layout \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+const HEADER_BYTES = 8;
+const OUTPUT_BINS  = 1024;
+
+// \u2500\u2500 Live display config \u2014 updated from server \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+let cfg = {
+    centre_freq_mhz: 869.525,
+    sample_rate_mhz: 2.0,
+    gain_db:         33.8,
+    spec_min_db:    -100.0,
+    spec_max_db:    -50.0,
+    wf_min_db:      -95.0,
+    wf_max_db:      -65.0,
+};
+
+// \u2500\u2500 Profiles state \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+let profiles  = {};
+let lastUsed  = 'default';
+
+// \u2500\u2500 Colour palette (matching sdr2.py _STOPS) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+const PALETTE_STOPS = [
+    [  0, [  0,   0,   0]],
+    [ 38, [  0,   0, 160]],
+    [ 76, [  0,  60, 255]],
+    [128, [  0, 230, 230]],
+    [166, [  0, 210,   0]],
+    [210, [255, 210,   0]],
+    [255, [255,  20,   0]],
+];
+const PALETTE = new Uint8Array(256 * 3);
+(function buildPalette() {
+    for (let idx = 0; idx < 256; idx++) {
+        for (let s = 0; s < PALETTE_STOPS.length - 1; s++) {
+            const [p0, c0] = PALETTE_STOPS[s];
+            const [p1, c1] = PALETTE_STOPS[s + 1];
+            if (idx <= p1) {
+                const t = (idx - p0) / (p1 - p0);
+                PALETTE[idx * 3    ] = Math.round(c0[0] + t * (c1[0] - c0[0]));
+                PALETTE[idx * 3 + 1] = Math.round(c0[1] + t * (c1[1] - c0[1]));
+                PALETTE[idx * 3 + 2] = Math.round(c0[2] + t * (c1[2] - c0[2]));
+                break;
+            }
+        }
+    }
+})();
+
+function dbToPaletteIndex(db) {
+    return Math.max(0, Math.min(255,
+        Math.round(255 * (db - cfg.wf_min_db) / (cfg.wf_max_db - cfg.wf_min_db))
+    ));
+}
+
+// \u2500\u2500 Canvas setup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+const specCanvas = document.getElementById('spectrum-canvas');
+const wfCanvas   = document.getElementById('waterfall-canvas');
+const specCtx    = specCanvas.getContext('2d');
+const wfCtx      = wfCanvas.getContext('2d');
+const statusEl   = document.getElementById('status');
+const wfLabelEl  = document.getElementById('wf-label');
+
+let wfImageData = null;
+
+function resizeCanvases() {
+    specCanvas.width  = specCanvas.offsetWidth  || window.innerWidth;
+    specCanvas.height = specCanvas.offsetHeight || 200;
+    wfCanvas.width    = wfCanvas.offsetWidth    || window.innerWidth;
+    wfCanvas.height   = wfCanvas.offsetHeight   || 300;
+    wfImageData = null;
+}
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+// \u2500\u2500 Frequency axis \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function buildFreqAxis() {
+    const axis  = document.getElementById('freq-axis');
+    axis.innerHTML = '';
+    const start = cfg.centre_freq_mhz - cfg.sample_rate_mhz / 2;
+    const end   = cfg.centre_freq_mhz + cfg.sample_rate_mhz / 2;
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+        const f    = start + i * (end - start) / (n - 1);
+        const span = document.createElement('span');
+        span.textContent = f.toFixed(3);
+        axis.appendChild(span);
+    }
+}
+buildFreqAxis();
+
+// \u2500\u2500 Header update \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function updateHeader() {
+    document.getElementById('h-freq').textContent = cfg.centre_freq_mhz.toFixed(3);
+    document.getElementById('h-rate').textContent = cfg.sample_rate_mhz.toFixed(3);
+    document.getElementById('h-gain').textContent = cfg.gain_db.toFixed(1);
+}
+
+// \u2500\u2500 Apply config from server \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function applyServerConfig(params) {
+    cfg.centre_freq_mhz = params.centre_freq_mhz;
+    cfg.sample_rate_mhz = params.sample_rate_mhz;
+    cfg.gain_db         = params.gain_db;
+    cfg.spec_min_db     = params.spec_min_db;
+    cfg.spec_max_db     = params.spec_max_db;
+    cfg.wf_min_db       = params.wf_min_db;
+    cfg.wf_max_db       = params.wf_max_db;
+    updateHeader();
+    buildFreqAxis();
+    updateSettingsFields();
+    wfLabelEl.textContent =
+        'Waterfall  ' + cfg.wf_min_db.toFixed(0) + ' dBFS = black   ' +
+        cfg.wf_max_db.toFixed(0) + ' dBFS = red';
+}
+
+// \u2500\u2500 Spectrum drawing \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function drawSpectrum(bins) {
+    const w = specCanvas.width;
+    const h = specCanvas.height;
+
+    specCtx.fillStyle = '#0a0a0a';
+    specCtx.fillRect(0, 0, w, h);
+
+    specCtx.strokeStyle = '#1a1a2e';
+    specCtx.lineWidth   = 1;
+    specCtx.font        = '9px monospace';
+    specCtx.fillStyle   = '#444';
+    for (let db = cfg.spec_min_db; db <= cfg.spec_max_db; db += 10) {
+        const y = h - h * (db - cfg.spec_min_db) / (cfg.spec_max_db - cfg.spec_min_db);
+        specCtx.beginPath();
+        specCtx.moveTo(0, y);
+        specCtx.lineTo(w, y);
+        specCtx.stroke();
+        specCtx.fillText(db + ' dB', 3, y - 2);
+    }
+
+    specCtx.strokeStyle = 'rgba(255,80,80,0.4)';
+    specCtx.setLineDash([4, 4]);
+    specCtx.lineWidth = 1;
+    specCtx.beginPath();
+    specCtx.moveTo(w / 2, 0);
+    specCtx.lineTo(w / 2, h);
+    specCtx.stroke();
+    specCtx.setLineDash([]);
+
+    specCtx.strokeStyle = '#00e63c';
+    specCtx.lineWidth   = 1;
+    specCtx.beginPath();
+    const n = bins.length;
+    for (let i = 0; i < n; i++) {
+        const x  = (i / (n - 1)) * w;
+        const db = Math.max(cfg.spec_min_db, Math.min(cfg.spec_max_db, bins[i]));
+        const y  = h - h * (db - cfg.spec_min_db) / (cfg.spec_max_db - cfg.spec_min_db);
+        if (i === 0) specCtx.moveTo(x, y);
+        else         specCtx.lineTo(x, y);
+    }
+    specCtx.stroke();
+}
+
+// \u2500\u2500 Waterfall drawing \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function drawWaterfall(bins) {
+    const w = wfCanvas.width;
+    const h = wfCanvas.height;
+
+    if (!wfImageData || wfImageData.width !== w || wfImageData.height !== h) {
+        wfImageData = wfCtx.createImageData(w, h);
+        const d = wfImageData.data;
+        for (let i = 3; i < d.length; i += 4) d[i] = 255;
+    }
+
+    const data     = wfImageData.data;
+    const rowBytes = w * 4;
+    data.copyWithin(rowBytes, 0, (h - 1) * rowBytes);
+
+    const n = bins.length;
+    for (let x = 0; x < w; x++) {
+        const binIdx = Math.round(x * (n - 1) / (w - 1));
+        const idx    = dbToPaletteIndex(bins[binIdx]) * 3;
+        const px     = x * 4;
+        data[px    ] = PALETTE[idx    ];
+        data[px + 1] = PALETTE[idx + 1];
+        data[px + 2] = PALETTE[idx + 2];
+    }
+    wfCtx.putImageData(wfImageData, 0, 0);
+}
+
+// \u2500\u2500 Binary frame parser \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function parseFrame(arrayBuffer) {
+    if (arrayBuffer.byteLength !== HEADER_BYTES + OUTPUT_BINS * 2) {
+        console.warn('Unexpected frame size:', arrayBuffer.byteLength);
+        return null;
+    }
+    const view = new DataView(arrayBuffer);
+
+    // Update display range from header (dBFS values sent as \u00d710)
+    cfg.spec_min_db = view.getInt16(0, true) / 10.0;
+    cfg.spec_max_db = view.getInt16(2, true) / 10.0;
+    cfg.wf_min_db   = view.getInt16(4, true) / 10.0;
+    cfg.wf_max_db   = view.getInt16(6, true) / 10.0;
+
+    const bins = new Float32Array(OUTPUT_BINS);
+    for (let i = 0; i < OUTPUT_BINS; i++) {
+        bins[i] = view.getInt16(HEADER_BYTES + i * 2, true) / 10.0;
+    }
+    return bins;
+}
+
+// \u2500\u2500 Settings panel UI \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+function updateSettingsFields() {
+    document.getElementById('s-freq').value     = cfg.centre_freq_mhz.toFixed(3);
+    document.getElementById('s-rate').value     = cfg.sample_rate_mhz.toFixed(3);
+    document.getElementById('s-gain').value     = cfg.gain_db.toFixed(1);
+    document.getElementById('s-spec-min').value = cfg.spec_min_db.toFixed(0);
+    document.getElementById('s-spec-max').value = cfg.spec_max_db.toFixed(0);
+    document.getElementById('s-wf-min').value   = cfg.wf_min_db.toFixed(0);
+    document.getElementById('s-wf-max').value   = cfg.wf_max_db.toFixed(0);
+}
+
+function readSettingsFields() {
+    return {
+        centre_freq_mhz: parseFloat(document.getElementById('s-freq').value),
+        sample_rate_mhz: parseFloat(document.getElementById('s-rate').value),
+        gain_db:         parseFloat(document.getElementById('s-gain').value),
+        spec_min_db:     parseFloat(document.getElementById('s-spec-min').value),
+        spec_max_db:     parseFloat(document.getElementById('s-spec-max').value),
+        wf_min_db:       parseFloat(document.getElementById('s-wf-min').value),
+        wf_max_db:       parseFloat(document.getElementById('s-wf-max').value),
+    };
+}
+
+function updatePresetDropdown() {
+    const sel = document.getElementById('preset-select');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    Object.keys(profiles).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value       = name;
+        opt.textContent = name;
+        if (name === lastUsed) opt.selected = true;
+        sel.appendChild(opt);
+    });
+    // Restore previous selection if still present
+    if (prev && profiles[prev]) sel.value = prev;
+}
+
+function openSettings() {
+    updateSettingsFields();
+    updatePresetDropdown();
+    document.getElementById('settings-overlay').classList.remove('hidden');
+}
+function closeSettings() {
+    document.getElementById('settings-overlay').classList.add('hidden');
+}
+
+// Settings button toggle
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+document.getElementById('close-settings').addEventListener('click', closeSettings);
+
+// Close on overlay click (outside panel)
+document.getElementById('settings-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+
+// Load preset
+document.getElementById('load-preset-btn').addEventListener('click', () => {
+    const name = document.getElementById('preset-select').value;
+    if (profiles[name]) {
+        const p = profiles[name];
+        // Populate fields from preset
+        document.getElementById('s-freq').value     = p.centre_freq_mhz.toFixed(3);
+        document.getElementById('s-rate').value     = p.sample_rate_mhz.toFixed(3);
+        document.getElementById('s-gain').value     = p.gain_db.toFixed(1);
+        document.getElementById('s-spec-min').value = p.spec_min_db.toFixed(0);
+        document.getElementById('s-spec-max').value = p.spec_max_db.toFixed(0);
+        document.getElementById('s-wf-min').value   = p.wf_min_db.toFixed(0);
+        document.getElementById('s-wf-max').value   = p.wf_max_db.toFixed(0);
+    }
+});
+
+// Delete preset
+document.getElementById('delete-preset-btn').addEventListener('click', () => {
+    const name = document.getElementById('preset-select').value;
+    if (Object.keys(profiles).length <= 1) {
+        alert('Cannot delete the last preset.');
+        return;
+    }
+    if (confirm('Delete preset "' + name + '"?')) {
+        sendCmd({ cmd: 'delete_preset', name });
+    }
+});
+
+// Apply button
+document.getElementById('apply-btn').addEventListener('click', () => {
+    const params = readSettingsFields();
+    sendCmd({ cmd: 'apply', params });
+});
+
+// Save as preset button
+document.getElementById('save-preset-btn').addEventListener('click', () => {
+    const name = prompt('Enter preset name:', document.getElementById('preset-select').value || 'mypreset');
+    if (!name || !name.trim()) return;
+    const params = readSettingsFields();
+    sendCmd({ cmd: 'save_preset', name: name.trim(), params });
+    closeSettings();
+});
+
+// Shutdown button
+document.getElementById('shutdown-btn').addEventListener('click', () => {
+    if (confirm('Shut down the Pi now?\n\nWait 10 seconds before removing power.')) {
+        sendCmd({ cmd: 'shutdown' });
+        statusEl.textContent = 'Shutdown command sent \u2014 wait 10s before removing power';
+        statusEl.style.color = '#f80';
+    }
+});
+
+// \u2500\u2500 WebSocket \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+const wsHost = window.location.hostname;
+const ws     = new WebSocket('ws://' + wsHost + ':8081');
+ws.binaryType = 'arraybuffer';
+
+function sendCmd(obj) {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(obj));
+    }
+}
+
+ws.onopen = () => {
+    statusEl.textContent = 'Connected';
+    statusEl.style.color = '#0f0';
+};
+ws.onclose = () => {
+    statusEl.textContent = 'Disconnected \u2014 reload to reconnect';
+    statusEl.style.color = '#f44';
+};
+ws.onerror = () => {
+    statusEl.textContent = 'WebSocket error';
+    statusEl.style.color = '#f80';
+};
+
+ws.onmessage = (event) => {
+    if (event.data instanceof ArrayBuffer) {
+        // Binary spectrum frame
+        const bins = parseFrame(event.data);
+        if (!bins) return;
+        wfLabelEl.textContent =
+            'Waterfall  ' + cfg.wf_min_db.toFixed(0) + ' dBFS = black   ' +
+            cfg.wf_max_db.toFixed(0) + ' dBFS = red';
+        drawSpectrum(bins);
+        drawWaterfall(bins);
+    } else {
+        // Text JSON control message from server
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+
+        if (msg.type === 'config' && msg.params) {
+            applyServerConfig(msg.params);
+        } else if (msg.type === 'profiles' && msg.presets) {
+            profiles  = msg.presets;
+            lastUsed  = msg.last_used || Object.keys(profiles)[0] || 'default';
+            // If settings panel is open, refresh the dropdown
+            if (!document.getElementById('settings-overlay').classList.contains('hidden')) {
+                updatePresetDropdown();
+            }
+        }
+    }
+};
+
+// Initialise fields with current defaults so panel shows correct values
+// even before the server sends the config message
+updateSettingsFields();
+</script>
+
+</body>
+</html>
