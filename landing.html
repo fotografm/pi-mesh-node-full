@@ -174,7 +174,7 @@ body {
 }
 #notepad:focus { border-color: #2a2a4a; color: #ccc; }
 
-/* ── Shutdown modal ──────────────────────────────────────────────────────── */
+/* ── Power modal ─────────────────────────────────────────────────────────── */
 #shutdown-modal {
     display: none;
     position: fixed;
@@ -190,7 +190,8 @@ body {
     border: 2px solid #5a2a2a;
     border-radius: 8px;
     padding: 28px 32px;
-    max-width: 320px;
+    max-width: 340px;
+    width: 100%;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -198,9 +199,9 @@ body {
 }
 #shutdown-box h2 { font-size: 13px; color: #dd5555; letter-spacing: 2px; }
 #shutdown-box p  { font-size: 11px; color: #ccc; line-height: 1.6; }
-.modal-buttons { display: flex; gap: 12px; justify-content: center; }
+.modal-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .modal-btn {
-    padding: 8px 20px;
+    padding: 8px 16px;
     font-family: monospace;
     font-size: 11px;
     letter-spacing: 1px;
@@ -209,10 +210,13 @@ body {
     border: 2px solid #3a3a4a;
     background: #1a1a22;
     color: #999;
+    transition: background 0.15s;
 }
-.modal-btn-confirm { border-color: #8a2a2a; color: #dd5555; }
-.modal-btn-confirm:hover { background: #1a0a0a; }
 .modal-btn:hover { background: #161616; }
+.modal-btn-shutdown { border-color: #8a2a2a; color: #dd5555; }
+.modal-btn-shutdown:hover { background: #1a0808; }
+.modal-btn-reboot { border-color: #2a5a2a; color: #55cc55; }
+.modal-btn-reboot:hover { background: #081a08; }
 #shutdown-countdown { font-size: 11px; color: #999; min-height: 16px; }
 </style>
 </head>
@@ -261,14 +265,15 @@ body {
     <textarea id="notepad" placeholder="Type a quick note…"></textarea>
 </div>
 
-<!-- Shutdown modal -->
+<!-- Power modal -->
 <div id="shutdown-modal">
     <div id="shutdown-box">
-        <h2>⏻ Shutdown raspi20?</h2>
-        <p>Wait 10 seconds after confirming<br>before removing power.</p>
+        <h2>⏻ raspi20 Power</h2>
+        <p>Shutdown: wait 10s before removing power.<br>Reboot: page reloads automatically.</p>
         <div class="modal-buttons">
             <button class="modal-btn" onclick="hideShutdown()">Cancel</button>
-            <button class="modal-btn modal-btn-confirm" onclick="confirmShutdown()">Shut Down</button>
+            <button class="modal-btn modal-btn-reboot" onclick="confirmReboot()">&#x21BA; Reboot</button>
+            <button class="modal-btn modal-btn-shutdown" onclick="confirmShutdown()">⏻ Shut Down</button>
         </div>
         <div id="shutdown-countdown"></div>
     </div>
@@ -329,7 +334,7 @@ notepad.addEventListener('input', () => {
     }, 1500);
 });
 
-// ── Shutdown modal ──────────────────────────────────────────────────────────
+// ── Power modal ────────────────────────────────────────────────────────────
 function showShutdown() {
     document.getElementById('shutdown-modal').classList.add('visible');
     document.querySelector('.modal-buttons').style.display = 'flex';
@@ -345,6 +350,15 @@ function confirmShutdown() {
     fetch('/shutdown', { method: 'POST' })
         .then(() => { cd.textContent = 'Shutting down… wait 10s before removing power.'; })
         .catch(() => { cd.textContent = 'Shutdown command sent.'; });
+}
+function confirmReboot() {
+    document.querySelector('.modal-buttons').style.display = 'none';
+    const cd = document.getElementById('shutdown-countdown');
+    cd.textContent = 'Rebooting… page will reload in 30 seconds.';
+    fetch('/reboot', { method: 'POST' })
+        .then(() => {})
+        .catch(() => {});
+    setTimeout(() => { window.location.reload(); }, 30000);
 }
 </script>
 </body>

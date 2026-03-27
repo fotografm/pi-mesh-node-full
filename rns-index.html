@@ -409,7 +409,7 @@ function renderAnnounces() {
             + (ann.hash === activePeer ? ' active' : '')
             + (unreadHashes.has(ann.hash) ? ' unread' : '');
         row.dataset.hash = ann.hash;
-        const hops = ann.hops === 1  ? 'direct'
+        const hops = ann.hops === 1  ? '1 hop'
                    : ann.hops >  1  ? ann.hops + ' hops'
                    : '?';
         row.innerHTML = `

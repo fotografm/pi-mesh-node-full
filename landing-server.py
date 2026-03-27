@@ -12,6 +12,7 @@ Handles:
   PUT  /api/notes/<id>    -> update a note
   DELETE /api/notes/<id>  -> delete a note
   POST /shutdown   -> system shutdown
+  POST /reboot     -> system reboot
 """
 
 import asyncio
@@ -180,6 +181,13 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
             await writer.drain()
             log.info("Shutdown requested")
             subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+
+        # ── Reboot ────────────────────────────────────────────────────────
+        elif method == "POST" and path == "/reboot":
+            ok_text(writer, "rebooting")
+            await writer.drain()
+            log.info("Reboot requested")
+            subprocess.Popen(["sudo", "shutdown", "-r", "now"])
 
         else:
             not_found(writer)

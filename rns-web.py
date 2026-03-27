@@ -833,6 +833,8 @@ def init_rns_lxmf():
 
 # ── Terminal WebSocket handler ────────────────────────────────────────────────
 
+_terminal_active = False   # True while a PTY session is live
+
 async def terminal_ws_handler(ws):
     """
     Full PTY terminal over WebSocket for xterm.js.
@@ -842,7 +844,24 @@ async def terminal_ws_handler(ws):
       browser → server : raw bytes (keystrokes) OR JSON resize message
       server → browser : raw bytes (PTY output)
     Security note: only expose on the hotspot interface (trusted clients).
+    Only one session is allowed at a time — new connections are rejected
+    gracefully while an existing session is active.
     """
+    global _terminal_active
+
+    if _terminal_active:
+        log.info("Terminal WS rejected (session already active): %s", ws.remote_address)
+        try:
+            await ws.send(
+                b"\r\n\x1b[33mTerminal in use elsewhere. "
+                b"Multiple connections not supported.\x1b[0m\r\n"
+            )
+            await ws.close()
+        except Exception:
+            pass
+        return
+
+    _terminal_active = True
     log.info("Terminal WS connected: %s", ws.remote_address)
     loop = asyncio.get_event_loop()
 
@@ -941,6 +960,7 @@ async def terminal_ws_handler(ws):
     try:
         await asyncio.gather(_pty_to_ws(), _ws_to_pty())
     finally:
+        _terminal_active = False
         loop.remove_reader(master_fd)
         try:
             os.close(master_fd)
@@ -961,6 +981,9 @@ TERM_PAGE_HTML = b"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>raspi20 - Terminal</title>
+<link rel="stylesheet" href="/xterm.css">
+<script src="/xterm.js"></script>
+<script src="/addon-fit.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font-family: monospace; }
@@ -992,26 +1015,6 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font
 <script>
 'use strict';
 var wsHost   = window.location.hostname;
-var baseUrl  = 'http://' + wsHost;
-
-// Inject xterm static files dynamically
-var _css = document.createElement('link');
-_css.rel = 'stylesheet';
-_css.href = baseUrl + ':8082/xterm.css';
-document.head.appendChild(_css);
-
-function _loadScript(src, cb) {
-    var s = document.createElement('script');
-    s.src = src;
-    s.onload = cb;
-    document.head.appendChild(s);
-}
-_loadScript(baseUrl + ':8082/xterm.js', function() {
-    _loadScript(baseUrl + ':8082/addon-fit.js', initTerminal);
-});
-
-function initTerminal() {
-
 var statusEl = document.getElementById('conn-status');
 
 var term = new Terminal({
@@ -1046,7 +1049,7 @@ function connect() {
     termWs.onclose = function() {
         statusEl.textContent = 'reconnecting...';
         statusEl.style.color = '#664400';
-        term.write('\\r\\n\\x1b[33m[disconnected - reconnecting in 3s]\\x1b[0m\\r\\n');
+        term.write('[disconnected - reconnecting in 3s]');
         setTimeout(connect, 3000);
     };
     termWs.onerror = function() {
@@ -1070,15 +1073,39 @@ connect();
 async def term_page_handler(reader: asyncio.StreamReader,
                              writer: asyncio.StreamWriter):
     try:
-        await reader.read(4096)
-        header = (
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html; charset=utf-8\r\n"
-            f"Content-Length: {len(TERM_PAGE_HTML)}\r\n"
-            "Connection: close\r\n"
-            "\r\n"
-        ).encode()
-        writer.write(header + TERM_PAGE_HTML)
+        raw = await reader.read(4096)
+        path = "/"
+        try:
+            first_line = raw.split(b"\r\n")[0].decode()
+            path = first_line.split(" ")[1].split("?")[0]
+        except Exception:
+            pass
+
+        # Serve xterm static files on this port too so relative URLs work
+        if path in STATIC_FILES:
+            mime, fpath = STATIC_FILES[path]
+            try:
+                body = fpath.read_bytes()
+            except FileNotFoundError:
+                body = b"/* not found */"
+            header = (
+                "HTTP/1.1 200 OK\r\n"
+                f"Content-Type: {mime}\r\n"
+                f"Content-Length: {len(body)}\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            ).encode()
+            writer.write(header + body)
+        else:
+            header = (
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                f"Content-Length: {len(TERM_PAGE_HTML)}\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            ).encode()
+            writer.write(header + TERM_PAGE_HTML)
         await writer.drain()
     except Exception:
         pass
