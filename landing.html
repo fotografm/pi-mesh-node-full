@@ -53,9 +53,9 @@ body {
 /* ── Main buttons row ────────────────────────────────────────────────────── */
 #main-btn-row {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
 }
 #btn-combined, #btn-map {
     flex: 1;
@@ -63,8 +63,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 18px 12px;
+    gap: 8px;
+    padding: 26px 16px;
     border-radius: 8px;
     cursor: pointer;
     text-decoration: none;
@@ -74,27 +74,27 @@ body {
 #btn-combined:hover { background: #111133; border-color: #4a4a9a; }
 #btn-map { background: #0a1a12; border: 2px solid #1a3a2a; }
 #btn-map:hover { background: #0d2218; border-color: #2a6a4a; }
-.btn-icon { font-size: 26px; }
+.btn-icon { font-size: 30px; }
 .btn-label {
-    font-size: 12px;
+    font-size: 13px;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: #8888cc;
 }
 #btn-map .btn-label { color: #4aaa7a; }
 .btn-sub {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 1px;
-    color: #555;
+    color: #666;
     text-transform: uppercase;
 }
 
 /* ── Small buttons row ───────────────────────────────────────────────────── */
 #btn-row {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
 }
 .btn-small {
     flex: 1;
@@ -102,8 +102,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 14px 10px;
+    gap: 7px;
+    padding: 20px 12px;
     background: #111122;
     border: 2px solid #222233;
     border-radius: 6px;
@@ -112,10 +112,9 @@ body {
     font-family: monospace;
     transition: background 0.15s, border-color 0.15s;
 }
-.btn-small:hover { background: #111122; }
-.btn-small .btn-icon { font-size: 20px; }
+.btn-small .btn-icon { font-size: 24px; }
 .btn-small .btn-label {
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 2px;
     text-transform: uppercase;
     color: #ccc;
@@ -137,7 +136,7 @@ body {
 /* ── Notepad widget ──────────────────────────────────────────────────────── */
 #notepad-section {
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -226,33 +225,33 @@ body {
 
 <div id="clock">
     <div id="clock-time">00:00:00</div>
-    <div id="clock-date">—</div>
+    <div id="clock-date">&#8212;</div>
 </div>
 
 <div id="main-btn-row">
     <a id="btn-combined" href="#" target="_blank">
-        <span class="btn-icon">📡</span>
+        <span class="btn-icon">&#x1F4E1;</span>
         <span class="btn-label">SDR + Reticulum</span>
-        <span class="btn-sub">Combined · Port 8084</span>
+        <span class="btn-sub">Combined &middot; Port 8084</span>
     </a>
     <a id="btn-map" href="#" target="_blank">
-        <span class="btn-icon">🎯</span>
+        <span class="btn-icon">&#x1F3AF;</span>
         <span class="btn-label">Node Map</span>
-        <span class="btn-sub">Dartboard · Port 8086</span>
+        <span class="btn-sub">Dartboard &middot; Port 8086</span>
     </a>
 </div>
 
 <div id="btn-row">
     <a class="btn-small btn-notes" id="btn-notes" href="#" target="_blank">
-        <span class="btn-icon">📝</span>
+        <span class="btn-icon">&#x1F4DD;</span>
         <span class="btn-label">Notes</span>
     </a>
     <a class="btn-small btn-terminal" id="btn-terminal" href="#" target="_blank">
-        <span class="btn-icon">⌨️</span>
+        <span class="btn-icon">&#x2328;&#xFE0F;</span>
         <span class="btn-label">Terminal</span>
     </a>
     <button class="btn-small btn-shutdown" onclick="showShutdown()">
-        <span class="btn-icon">⏻</span>
+        <span class="btn-icon">&#x23FB;</span>
         <span class="btn-label">Shutdown</span>
     </button>
 </div>
@@ -262,18 +261,18 @@ body {
         <span>Quick Note</span>
         <span id="notepad-status"></span>
     </div>
-    <textarea id="notepad" placeholder="Type a quick note…"></textarea>
+    <textarea id="notepad" placeholder="Type a quick note&#8230;"></textarea>
 </div>
 
 <!-- Power modal -->
 <div id="shutdown-modal">
     <div id="shutdown-box">
-        <h2>⏻ raspi20 Power</h2>
+        <h2>&#x23FB; raspi20 Power</h2>
         <p>Shutdown: wait 10s before removing power.<br>Reboot: page reloads automatically.</p>
         <div class="modal-buttons">
             <button class="modal-btn" onclick="hideShutdown()">Cancel</button>
             <button class="modal-btn modal-btn-reboot" onclick="confirmReboot()">&#x21BA; Reboot</button>
-            <button class="modal-btn modal-btn-shutdown" onclick="confirmShutdown()">⏻ Shut Down</button>
+            <button class="modal-btn modal-btn-shutdown" onclick="confirmShutdown()">&#x23FB; Shut Down</button>
         </div>
         <div id="shutdown-countdown"></div>
     </div>
@@ -288,7 +287,6 @@ document.getElementById('btn-map').href      = `http://${h}:8086`;
 document.getElementById('btn-notes').href    = `http://${h}/notes.html`;
 document.getElementById('btn-terminal').href = `http://${h}:8087`;
 
-// ── Clock ──────────────────────────────────────────────────────────────────
 const DAYS   = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun',
                 'Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -305,7 +303,6 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
-// ── Notepad auto-save ──────────────────────────────────────────────────────
 const notepad = document.getElementById('notepad');
 const notepadStatus = document.getElementById('notepad-status');
 let saveTimer = null;
@@ -316,7 +313,7 @@ fetch('/notes')
     .catch(() => {});
 
 notepad.addEventListener('input', () => {
-    notepadStatus.textContent = 'unsaved…';
+    notepadStatus.textContent = 'unsaved\u2026';
     notepadStatus.style.color = '#3a3a2a';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -325,7 +322,7 @@ notepad.addEventListener('input', () => {
             headers: { 'Content-Type': 'text/plain' },
             body: notepad.value,
         }).then(() => {
-            notepadStatus.textContent = 'saved ✓';
+            notepadStatus.textContent = 'saved \u2713';
             notepadStatus.style.color = '#1a4a1a';
         }).catch(() => {
             notepadStatus.textContent = 'save failed';
@@ -334,7 +331,6 @@ notepad.addEventListener('input', () => {
     }, 1500);
 });
 
-// ── Power modal ────────────────────────────────────────────────────────────
 function showShutdown() {
     document.getElementById('shutdown-modal').classList.add('visible');
     document.querySelector('.modal-buttons').style.display = 'flex';
@@ -346,15 +342,15 @@ function hideShutdown() {
 function confirmShutdown() {
     document.querySelector('.modal-buttons').style.display = 'none';
     const cd = document.getElementById('shutdown-countdown');
-    cd.textContent = 'Sending shutdown command…';
+    cd.textContent = 'Sending shutdown command\u2026';
     fetch('/shutdown', { method: 'POST' })
-        .then(() => { cd.textContent = 'Shutting down… wait 10s before removing power.'; })
+        .then(() => { cd.textContent = 'Shutting down\u2026 wait 10s before removing power.'; })
         .catch(() => { cd.textContent = 'Shutdown command sent.'; });
 }
 function confirmReboot() {
     document.querySelector('.modal-buttons').style.display = 'none';
     const cd = document.getElementById('shutdown-countdown');
-    cd.textContent = 'Rebooting… page will reload in 30 seconds.';
+    cd.textContent = 'Rebooting\u2026 page will reload in 30 seconds.';
     fetch('/reboot', { method: 'POST' })
         .then(() => {})
         .catch(() => {});

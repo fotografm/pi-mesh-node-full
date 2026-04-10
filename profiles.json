@@ -1,0 +1,41 @@
+{
+  "last_used": "869",
+  "presets": {
+    "434-outdoor": {
+      "centre_freq_mhz": 433.92,
+      "sample_rate_mhz": 2.0,
+      "gain_db": 33.8,
+      "spec_min_db": -80.0,
+      "spec_max_db": -30.0,
+      "wf_min_db": -80.0,
+      "wf_max_db": -65.0
+    },
+    "default": {
+      "centre_freq_mhz": 869.525,
+      "sample_rate_mhz": 2.0,
+      "gain_db": 33.8,
+      "spec_min_db": -100.0,
+      "spec_max_db": -50.0,
+      "wf_min_db": -95.0,
+      "wf_max_db": -65.0
+    },
+    "ism434": {
+      "centre_freq_mhz": 433.92,
+      "sample_rate_mhz": 2.0,
+      "gain_db": 33.8,
+      "spec_min_db": -80.0,
+      "spec_max_db": -30.0,
+      "wf_min_db": -80.0,
+      "wf_max_db": -65.0
+    },
+    "869": {
+      "centre_freq_mhz": 869.525,
+      "sample_rate_mhz": 2.0,
+      "gain_db": 33.8,
+      "spec_min_db": -85.0,
+      "spec_max_db": -40.0,
+      "wf_min_db": -85.0,
+      "wf_max_db": -65.0
+    }
+  }
+}

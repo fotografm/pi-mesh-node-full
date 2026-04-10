@@ -70,38 +70,22 @@ _local_dest = None                  # our LXMF delivery destination
 # ── Display name sanitisation ─────────────────────────────────────────────────
 
 def sanitise_name(raw: str, fallback: str) -> str:
-    """
-    Strip non-printable and non-ASCII-safe characters from a display name.
-    Returns fallback (short hash) if the result is empty or looks like binary.
-    """
     if not raw:
         return fallback
-    # Keep only printable Unicode chars (excludes control chars, surrogates etc.)
     cleaned = "".join(c for c in raw if c.isprintable())
     cleaned = cleaned.strip()
     if not cleaned:
         return fallback
-    # If more than 25% of chars are non-ASCII, treat as binary garbage
     non_ascii = sum(1 for c in cleaned if ord(c) > 127)
     if len(cleaned) > 0 and non_ascii / len(cleaned) > 0.25:
         return fallback
     return cleaned
 
 # ── Hash deduplication ────────────────────────────────────────────────────────
-# MeshChat nodes announce with multiple hashes (delivery + propagation).
-# We maintain a name→canonical_hash map so all messages from the same
-# display name are stored under one hash regardless of which hash they
-# actually arrived from.
-_canonical_hash: dict = {}          # display_name → first-seen hash_hex
+_canonical_hash: dict = {}
 _canonical_lock = threading.Lock()
 
 def canonical_peer_hash(peer_hash: str, peer_name: str) -> str:
-    """
-    Return the canonical hash for a named peer.
-    The first hash seen for a given display name becomes canonical.
-    Subsequent hashes for the same name are redirected to it.
-    If peer_name is empty, return peer_hash unchanged.
-    """
     if not peer_name:
         return peer_hash
     with _canonical_lock:
@@ -142,10 +126,6 @@ def db_init():
     log.info("Database ready: %s", DB_PATH)
 
 def db_load_canonical_hashes():
-    """
-    On startup, rebuild the canonical hash map from existing message history
-    so deduplication is consistent across restarts.
-    """
     conn = db_connect()
     rows = conn.execute(
         "SELECT peer_hash, peer_name, MIN(ts) as first_ts "
@@ -162,7 +142,6 @@ def db_load_canonical_hashes():
 
 def db_save_message(direction, peer_hash, peer_name, title, content,
                     ts=None, msg_hash=None) -> int:
-    """Save a message and return its row id."""
     conn = db_connect()
     cur = conn.execute(
         "INSERT INTO messages (ts, direction, peer_hash, peer_name, title, content, msg_hash) "
@@ -176,7 +155,6 @@ def db_save_message(direction, peer_hash, peer_name, title, content,
     return row_id
 
 def db_update_status(msg_hash: str, status: str):
-    """Update delivery status for an outbound message by its LXMF hash."""
     conn = db_connect()
     conn.execute(
         "UPDATE messages SET status=? WHERE msg_hash=?",
@@ -208,7 +186,6 @@ def db_get_conversations() -> list:
 # ── WebSocket broadcast ───────────────────────────────────────────────────────
 
 def _broadcast_from_thread(msg: dict):
-    """Thread-safe broadcast from RNS/LXMF callback threads."""
     if _loop is None:
         return
     payload = json.dumps(msg)
@@ -235,7 +212,6 @@ async def _broadcast(payload: str):
 # ── Auto-announce task ────────────────────────────────────────────────────────
 
 def do_announce():
-    """Send an LXMF announce. Safe to call from any thread."""
     global _local_dest
     if _local_dest is None:
         return
@@ -252,7 +228,6 @@ def do_announce():
         log.error("Announce error: %s", e)
 
 async def auto_announce_loop():
-    """Announce on startup then every ANNOUNCE_INTERVAL seconds."""
     await asyncio.sleep(5)
     do_announce()
     while True:
@@ -266,12 +241,8 @@ import shutil as _shutil
 
 def _parse_rnstatus_noise() -> tuple:
     """
-    Run rnstatus and parse noise floor + interference values.
-    Returns (noise_db: int|None, intrfrnc_db: int|None)
-    Handles both formats:
-      'Noise Fl. : -104 dBm, no interference'
-      'Noise Fl. : -104 dBm, Intrfrnc.: -84 dBm 53s ago'
-      'Noise Fl.: -104 dBm'   (older format)
+    Run rnstatus and parse noise floor value only.
+    Returns (noise_db: int|None,)
     """
     rnstatus = _shutil.which("rnstatus") or str(Path(STORAGE_PATH).parent / "rns-web-venv" / "bin" / "rnstatus")
     try:
@@ -283,45 +254,30 @@ def _parse_rnstatus_noise() -> tuple:
         output = result.stdout + result.stderr
     except Exception as e:
         log.debug("rnstatus error: %s", e)
-        return None, None
+        return (None,)
 
-    noise_db   = None
-    intrfrnc_db = None
-
+    noise_db = None
     for line in output.splitlines():
-        # Noise floor
         m = _re.search(r'Noise\s+Fl[.\s]+:\s*(-?\d+)\s*dBm', line, _re.IGNORECASE)
         if m:
             noise_db = int(m.group(1))
-            # Interference on same line
-            if 'no interference' in line.lower():
-                intrfrnc_db = None
-            else:
-                mi = _re.search(r'Intrfrnc[.\s]+:\s*(-?\d+)\s*dBm', line, _re.IGNORECASE)
-                if mi:
-                    intrfrnc_db = int(mi.group(1))
-        # Interference on its own line
-        if noise_db is not None and intrfrnc_db is None:
-            mi = _re.search(r'Intrfrnc[.\s]+:\s*(-?\d+)\s*dBm', line, _re.IGNORECASE)
-            if mi:
-                intrfrnc_db = int(mi.group(1))
+            break
 
-    return noise_db, intrfrnc_db
+    return (noise_db,)
 
 async def noise_poll_loop():
     """Poll rnstatus every second and broadcast noise_sample to all WS clients."""
-    await asyncio.sleep(8)   # let rnsd settle first
+    await asyncio.sleep(8)
     while True:
         try:
-            noise_db, intrfrnc_db = await asyncio.get_event_loop().run_in_executor(
+            (noise_db,) = await asyncio.get_event_loop().run_in_executor(
                 None, _parse_rnstatus_noise
             )
             if noise_db is not None:
                 _broadcast_from_thread({
-                    "type":       "noise_sample",
-                    "noise_db":   noise_db,
-                    "intrfrnc_db": intrfrnc_db,
-                    "ts":          time.time(),
+                    "type":     "noise_sample",
+                    "noise_db": noise_db,
+                    "ts":       time.time(),
                 })
         except Exception as e:
             log.debug("noise_poll_loop error: %s", e)
@@ -330,7 +286,6 @@ async def noise_poll_loop():
 # ── RNS Announce handler ──────────────────────────────────────────────────────
 
 class AnnounceHandler:
-    """Receives all announces from rnsd and forwards to browser."""
     aspect_filter = None
 
     def received_announce(self, destination_hash, announced_identity, app_data):
@@ -353,13 +308,9 @@ class AnnounceHandler:
         except Exception:
             pass
 
-        # Sanitise display name — reject binary garbage
         disp_name = sanitise_name(disp_name, hash_hex[:12] + "…")
-
-        # Register canonical hash for this display name
         canon = canonical_peer_hash(hash_hex, disp_name)
 
-        # hops_to returns RNS.Transport.PATHFINDER_M (128) for unknown paths
         raw_hops = RNS.Transport.hops_to(destination_hash)
         hops = raw_hops if (raw_hops is not None and 0 <= raw_hops <= 32) else -1
 
@@ -371,7 +322,6 @@ class AnnounceHandler:
         }
 
         with _announces_lock:
-            # Store under canonical hash — merges duplicate entries
             _announces[canon] = entry
 
         log.info("Announce: %s  %s  hops=%s",
@@ -385,12 +335,10 @@ class AnnounceHandler:
 # ── LXMF delivery callback ────────────────────────────────────────────────────
 
 def lxmf_delivery(message: LXMF.LXMessage):
-    """Called by LXMRouter in its own thread when a message arrives."""
     try:
         raw_hash  = message.source_hash.hex()
         peer_name = ""
 
-        # Look up display name from announce table using raw hash first
         with _announces_lock:
             entry = _announces.get(raw_hash) or _announces.get(
                 canonical_peer_hash(raw_hash, "")
@@ -398,7 +346,6 @@ def lxmf_delivery(message: LXMF.LXMessage):
             if entry:
                 peer_name = entry.get("name", "")
 
-        # If not in announces yet, check canonical map by iterating names
         if not peer_name:
             with _canonical_lock:
                 for name, canon in _canonical_hash.items():
@@ -406,7 +353,6 @@ def lxmf_delivery(message: LXMF.LXMessage):
                         peer_name = name
                         break
 
-        # Resolve to canonical hash for storage
         canon_hash = canonical_peer_hash(raw_hash, peer_name)
 
         title   = message.title.decode("utf-8", errors="replace") if message.title else ""
@@ -436,7 +382,6 @@ def lxmf_delivery(message: LXMF.LXMessage):
 # ── LXMF receipt callback ─────────────────────────────────────────────────────
 
 def lxmf_receipt(receipt):
-    """Called when a delivery receipt arrives for an outbound message."""
     try:
         msg_hash = receipt.hash.hex() if hasattr(receipt, "hash") else None
         if msg_hash is None:
@@ -454,7 +399,6 @@ def lxmf_receipt(receipt):
 # ── Send LXMF message ─────────────────────────────────────────────────────────
 
 def send_lxmf(dest_hash_hex: str, content: str, title: str = "") -> bool:
-    """Send an LXMF message. Returns True if queued successfully."""
     global _router, _local_dest
     try:
         dest_hash     = bytes.fromhex(dest_hash_hex)
@@ -600,7 +544,6 @@ STATIC_FILES = {
 async def http_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     try:
         raw = await reader.read(4096)
-        # Parse request path
         path = "/"
         try:
             first_line = raw.split(b"\r\n")[0].decode()
@@ -661,11 +604,10 @@ html, body { background: #0a0a0a; width: 100%; height: 100%; overflow: hidden; f
 #divider { width: 4px; background: #222233; cursor: col-resize; flex-shrink: 0; }
 #right-col { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
 #rns-frame { border: none; flex: 1; min-height: 0; width: 100%; }
-#noise-panel { height: 132px; flex-shrink: 0; background: #0a0a0a; border-top: 2px solid #222233; display: flex; flex-direction: column; }
-#noise-titlebar { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
-#noise-titlebar span { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
-#noise-reading { font-size: 11px; color: #00cc66 !important; }
-#noise-intrfrnc { font-size: 10px; color: #cc4444 !important; }
+#noise-panel { height: 130px; flex-shrink: 0; background: #0a0a0a; border-top: 2px solid #222233; display: flex; flex-direction: column; }
+#noise-titlebar { display: flex; align-items: center; justify-content: space-between; padding: 3px 10px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+#noise-titlebar .noise-label { font-size: 10px; color: #aaaadd; text-transform: uppercase; letter-spacing: 0.06em; }
+#noise-reading { font-size: 13px; color: #66dd66; font-weight: bold; letter-spacing: 1px; }
 #noise-chart-container { flex: 1; min-height: 0; padding: 2px 4px; }
 #noiseChart { width: 100% !important; height: 100% !important; display: block; }
 </style>
@@ -682,9 +624,8 @@ html, body { background: #0a0a0a; width: 100%; height: 100%; overflow: hidden; f
     <iframe id="rns-frame" src="" title="RNS Live"></iframe>
     <div id="noise-panel">
       <div id="noise-titlebar">
-        <span>RNode Noise Floor - 5 min</span>
+        <span class="noise-label">RNode Noise Floor &mdash; 5 min</span>
         <span id="noise-reading">-- dBm</span>
-        <span id="noise-intrfrnc"></span>
       </div>
       <div id="noise-chart-container">
         <canvas id="noiseChart"></canvas>
@@ -697,37 +638,34 @@ html, body { background: #0a0a0a; width: 100%; height: 100%; overflow: hidden; f
 var wsHost = window.location.hostname;
 var baseUrl = 'http://' + wsHost;
 
-// Set iframe sources dynamically
 document.getElementById('sdr-frame').src = baseUrl + ':8080';
 document.getElementById('map-frame').src = baseUrl + ':8086';
 document.getElementById('rns-frame').src = baseUrl + ':8082';
 
-// Noise chart - init after layout via requestAnimationFrame
 var MAX_POINTS = 300;
 var labels    = [];
 var noiseData = [];
-var intrfData = [];
-for (var i = 0; i < MAX_POINTS; i++) { labels.push(''); noiseData.push(null); intrfData.push(null); }
+for (var i = 0; i < MAX_POINTS; i++) { labels.push(''); noiseData.push(null); }
 
 var chart = null;
 requestAnimationFrame(function() {
     chart = new Chart(document.getElementById('noiseChart').getContext('2d'), {
         type: 'line',
         data: { labels: labels, datasets: [
-            { label:'Noise Fl.', data:noiseData, borderColor:'#00cc66',
-              borderWidth:1.5, pointRadius:0, tension:0.2, fill:false, spanGaps:true },
-            { label:'Intrfrnc.', data:intrfData, borderColor:'rgba(0,0,0,0)',
-              pointBackgroundColor:'#cc4444', pointRadius:4, showLine:false, spanGaps:false },
+            { label: 'Noise Fl.', data: noiseData,
+              borderColor: '#66dd66', borderWidth: 1.5,
+              pointRadius: 0, tension: 0.2, fill: false, spanGaps: true },
         ]},
         options: {
-            animation:false, responsive:true, maintainAspectRatio:false,
-            plugins:{ legend:{display:false}, tooltip:{enabled:false} },
-            scales:{
-                x:{ display:false },
-                y:{ min:-120, max:-80,
-                    ticks:{ color:'#555', font:{size:9,family:'monospace'},
-                            stepSize:10, callback:function(v){ return v+' dBm'; } },
-                    grid:{ color:'#1a1a1a' }, border:{ color:'#222233' } },
+            animation: false, responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+                x: { display: false },
+                y: { min: -120, max: -80,
+                    ticks: { color: '#aaaadd', font: { size: 9, family: 'monospace' },
+                             stepSize: 10, callback: function(v) { return v + ' dBm'; } },
+                    grid: { color: '#1a1a2a' },
+                    border: { color: '#2a2a5a' } },
             },
         },
     });
@@ -741,36 +679,69 @@ function connectNoise() {
         var msg; try { msg = JSON.parse(e.data); } catch(ex) { return; }
         if (msg.type !== 'noise_sample') return;
         noiseData.shift(); noiseData.push(msg.noise_db);
-        intrfData.shift(); intrfData.push(msg.intrfrnc_db);
         labels.shift(); labels.push('');
         if (chart) chart.update('none');
         document.getElementById('noise-reading').textContent =
             msg.noise_db !== null ? msg.noise_db + ' dBm' : '-- dBm';
-        var el = document.getElementById('noise-intrfrnc');
-        el.textContent = msg.intrfrnc_db !== null ? 'Intrfrnc: '+msg.intrfrnc_db+' dBm' : '';
     };
 }
 connectNoise();
 
-// Vertical divider
-var divider=document.getElementById('divider');
-var leftCol=document.getElementById('left-col');
-var rightCol=document.getElementById('right-col');
-var sdrFrame=document.getElementById('sdr-frame');
-var rnsFrame=document.getElementById('rns-frame');
-var mapFrame=document.getElementById('map-frame');
-var container=document.getElementById('container');
-var dragging=false;
-divider.addEventListener('mousedown',function(e){ dragging=true; sdrFrame.style.pointerEvents='none'; rnsFrame.style.pointerEvents='none'; mapFrame.style.pointerEvents='none'; e.preventDefault(); });
-document.addEventListener('mousemove',function(e){ if(!dragging)return; var rect=container.getBoundingClientRect(); var pct=Math.min(80,Math.max(30,((e.clientX-rect.left)/rect.width)*100)); leftCol.style.width=pct+'%'; rightCol.style.flex='none'; rightCol.style.width=(100-pct)+'%'; });
-document.addEventListener('mouseup',function(){ if(!dragging)return; dragging=false; sdrFrame.style.pointerEvents=''; rnsFrame.style.pointerEvents=''; mapFrame.style.pointerEvents=''; });
+// Vertical divider drag
+var divider   = document.getElementById('divider');
+var leftCol   = document.getElementById('left-col');
+var rightCol  = document.getElementById('right-col');
+var sdrFrame  = document.getElementById('sdr-frame');
+var rnsFrame  = document.getElementById('rns-frame');
+var mapFrame  = document.getElementById('map-frame');
+var container = document.getElementById('container');
+var dragging  = false;
+divider.addEventListener('mousedown', function(e) {
+    dragging = true;
+    sdrFrame.style.pointerEvents = 'none';
+    rnsFrame.style.pointerEvents = 'none';
+    mapFrame.style.pointerEvents = 'none';
+    e.preventDefault();
+});
+document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var rect = container.getBoundingClientRect();
+    var pct  = Math.min(80, Math.max(30, ((e.clientX - rect.left) / rect.width) * 100));
+    leftCol.style.width   = pct + '%';
+    rightCol.style.flex   = 'none';
+    rightCol.style.width  = (100 - pct) + '%';
+});
+document.addEventListener('mouseup', function() {
+    if (!dragging) return;
+    dragging = false;
+    sdrFrame.style.pointerEvents = '';
+    rnsFrame.style.pointerEvents = '';
+    mapFrame.style.pointerEvents = '';
+});
 
-// Horizontal divider (SDR/map)
-var leftDivider=document.getElementById('left-divider');
-var leftDragging=false;
-leftDivider.addEventListener('mousedown',function(e){ leftDragging=true; sdrFrame.style.pointerEvents='none'; mapFrame.style.pointerEvents='none'; e.preventDefault(); });
-document.addEventListener('mousemove',function(e){ if(!leftDragging)return; var rect=leftCol.getBoundingClientRect(); var pct=Math.min(70,Math.max(15,((e.clientY-rect.top)/rect.height)*100)); sdrFrame.style.height=pct+'%'; mapFrame.style.flex='none'; mapFrame.style.height=(100-pct)+'%'; });
-document.addEventListener('mouseup',function(){ if(!leftDragging)return; leftDragging=false; sdrFrame.style.pointerEvents=''; mapFrame.style.pointerEvents=''; });
+// Horizontal divider drag (SDR / map)
+var leftDivider  = document.getElementById('left-divider');
+var leftDragging = false;
+leftDivider.addEventListener('mousedown', function(e) {
+    leftDragging = true;
+    sdrFrame.style.pointerEvents = 'none';
+    mapFrame.style.pointerEvents = 'none';
+    e.preventDefault();
+});
+document.addEventListener('mousemove', function(e) {
+    if (!leftDragging) return;
+    var rect = leftCol.getBoundingClientRect();
+    var pct  = Math.min(70, Math.max(15, ((e.clientY - rect.top) / rect.height) * 100));
+    sdrFrame.style.height = pct + '%';
+    mapFrame.style.flex   = 'none';
+    mapFrame.style.height = (100 - pct) + '%';
+});
+document.addEventListener('mouseup', function() {
+    if (!leftDragging) return;
+    leftDragging = false;
+    sdrFrame.style.pointerEvents = '';
+    mapFrame.style.pointerEvents = '';
+});
 </script>
 </body>
 </html>
@@ -794,7 +765,7 @@ async def combined_http_handler(reader: asyncio.StreamReader,
     finally:
         writer.close()
 
-# ── Reticulum + LXMF initialisation (must run in main thread) ────────────────
+# ── Reticulum + LXMF initialisation ──────────────────────────────────────────
 
 def init_rns_lxmf():
     global _router, _local_dest
@@ -833,20 +804,9 @@ def init_rns_lxmf():
 
 # ── Terminal WebSocket handler ────────────────────────────────────────────────
 
-_terminal_active = False   # True while a PTY session is live
+_terminal_active = False
 
 async def terminal_ws_handler(ws):
-    """
-    Full PTY terminal over WebSocket for xterm.js.
-    Spawns a bash login shell on a real pseudo-terminal so that
-    ncurses apps (cmatrix, htop, vim, …) and sudo work correctly.
-    Protocol:
-      browser → server : raw bytes (keystrokes) OR JSON resize message
-      server → browser : raw bytes (PTY output)
-    Security note: only expose on the hotspot interface (trusted clients).
-    Only one session is allowed at a time — new connections are rejected
-    gracefully while an existing session is active.
-    """
     global _terminal_active
 
     if _terminal_active:
@@ -865,41 +825,32 @@ async def terminal_ws_handler(ws):
     log.info("Terminal WS connected: %s", ws.remote_address)
     loop = asyncio.get_event_loop()
 
-    # Allocate PTY pair
     master_fd, slave_fd = pty.openpty()
-
-    # Default window size — browser will send a resize immediately
     fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
                 struct.pack("HHHH", 24, 80, 0, 0))
 
     env = {
-        "TERM":      "xterm-256color",
-        "HOME":      "/home/user",
-        "USER":      "user",
-        "LOGNAME":   "user",
-        "SHELL":     "/bin/bash",
-        "PATH":      "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-        "LANG":      "en_GB.UTF-8",
+        "TERM":    "xterm-256color",
+        "HOME":    "/home/user",
+        "USER":    "user",
+        "LOGNAME": "user",
+        "SHELL":   "/bin/bash",
+        "PATH":    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG":    "en_GB.UTF-8",
     }
 
     def _setup_child():
         os.setsid()
-        # Set slave PTY as controlling terminal for this process
         fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
 
     proc = await asyncio.create_subprocess_exec(
         "/bin/bash", "--login",
-        stdin=slave_fd,
-        stdout=slave_fd,
-        stderr=slave_fd,
-        close_fds=True,
-        env=env,
-        cwd="/home/user",
+        stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+        close_fds=True, env=env, cwd="/home/user",
         preexec_fn=_setup_child,
     )
-    os.close(slave_fd)   # parent doesn't need the slave end
+    os.close(slave_fd)
 
-    # Make master non-blocking so the reader callback doesn't block the loop
     flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
     fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 
@@ -914,11 +865,9 @@ async def terminal_ws_handler(ws):
             loop.call_soon_threadsafe(pty_queue.put_nowait, None)
 
     loop.add_reader(master_fd, _on_pty_readable)
-
     stop = asyncio.Event()
 
     async def _pty_to_ws():
-        """Forward PTY output to the browser."""
         while not stop.is_set():
             try:
                 data = await asyncio.wait_for(pty_queue.get(), timeout=1.0)
@@ -933,7 +882,6 @@ async def terminal_ws_handler(ws):
         stop.set()
 
     async def _ws_to_pty():
-        """Forward browser keystrokes / resize messages to the PTY."""
         try:
             async for msg in ws:
                 if isinstance(msg, bytes):
@@ -942,7 +890,6 @@ async def terminal_ws_handler(ws):
                     except OSError:
                         break
                 elif isinstance(msg, str):
-                    # JSON control message (resize only for now)
                     try:
                         ctrl = json.loads(msg)
                         if ctrl.get("type") == "resize":
@@ -955,7 +902,7 @@ async def terminal_ws_handler(ws):
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            stop.set()   # signal _pty_to_ws to exit
+            stop.set()
 
     try:
         await asyncio.gather(_pty_to_ws(), _ws_to_pty())
@@ -1018,12 +965,12 @@ var wsHost   = window.location.hostname;
 var statusEl = document.getElementById('conn-status');
 
 var term = new Terminal({
-    cursorBlink:  true,
-    fontSize:     13,
-    fontFamily:   '"DejaVu Sans Mono", "Courier New", monospace',
-    theme: { background:'#000000', foreground:'#00ff00', cursor:'#00ff00',
-             selectionBackground:'#004400' },
-    scrollback:   1000,
+    cursorBlink: true,
+    fontSize:    13,
+    fontFamily:  '"DejaVu Sans Mono", "Courier New", monospace',
+    theme: { background: '#000000', foreground: '#00ff00', cursor: '#00ff00',
+             selectionBackground: '#004400' },
+    scrollback: 1000,
 });
 var fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
@@ -1081,7 +1028,6 @@ async def term_page_handler(reader: asyncio.StreamReader,
         except Exception:
             pass
 
-        # Serve xterm static files on this port too so relative URLs work
         if path in STATIC_FILES:
             mime, fpath = STATIC_FILES[path]
             try:
@@ -1119,7 +1065,7 @@ async def main():
     _loop = asyncio.get_event_loop()
 
     db_init()
-    db_load_canonical_hashes()      # rebuild dedup map from history on startup
+    db_load_canonical_hashes()
 
     log.info("╔══════════════════════════════════════════════╗")
     log.info("║  RNS Web Bridge                              ║")
@@ -1131,11 +1077,11 @@ async def main():
     log.info("║  Term page: http://10.42.0.1:%d             ║", TERM_PAGE_PORT)
     log.info("╚══════════════════════════════════════════════╝")
 
-    http_server     = await asyncio.start_server(http_handler,          "0.0.0.0", HTTP_PORT)
-    ws_server       = await ws_serve(ws_handler,                        "0.0.0.0", WS_PORT)
-    combined_server   = await asyncio.start_server(combined_http_handler, "0.0.0.0", COMBINED_PORT)
-    terminal_server   = await ws_serve(terminal_ws_handler,               "0.0.0.0", TERMINAL_PORT)
-    term_page_server  = await asyncio.start_server(term_page_handler,     "0.0.0.0", TERM_PAGE_PORT)
+    http_server      = await asyncio.start_server(http_handler,           "0.0.0.0", HTTP_PORT)
+    ws_server        = await ws_serve(ws_handler,                         "0.0.0.0", WS_PORT)
+    combined_server  = await asyncio.start_server(combined_http_handler,  "0.0.0.0", COMBINED_PORT)
+    terminal_server  = await ws_serve(terminal_ws_handler,                "0.0.0.0", TERMINAL_PORT)
+    term_page_server = await asyncio.start_server(term_page_handler,      "0.0.0.0", TERM_PAGE_PORT)
 
     async with http_server, ws_server, combined_server, terminal_server, term_page_server:
         await asyncio.gather(

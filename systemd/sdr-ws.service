@@ -1,0 +1,14 @@
+[Unit]
+Description=SDR WebSocket Spectrum Server
+After=network.target
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user
+ExecStart=/home/user/sdr-ws
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

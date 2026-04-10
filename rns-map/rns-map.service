@@ -1,0 +1,17 @@
+[Unit]
+Description=RNS Live Network Map
+After=network.target rnsd.service
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user/rns-map
+ExecStart=/home/user/rns-web-venv/bin/python rns_map.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rns-map
+
+[Install]
+WantedBy=multi-user.target

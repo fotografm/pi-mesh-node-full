@@ -1,0 +1,15 @@
+[Unit]
+Description=RNS Web Bridge (LXMF + Announces)
+After=network.target rnsd.service
+Wants=rnsd.service
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user
+ExecStart=/home/user/rns-web-venv/bin/python3 /home/user/rns-web.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

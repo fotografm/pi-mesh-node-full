@@ -1,0 +1,13 @@
+[Unit]
+Description=Reticulum Network Stack Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=user
+ExecStart=/home/user/rns-web-venv/bin/rnsd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[reticulum]
+  enable_transport = True
+  share_instance = Yes
+  shared_instance_port = 37428
+  instance_control_port = 37429
+  panic_on_interface_error = No
+  loglevel = 7
+
+[interfaces]
+  [[RNode RPI]]
+    type = RNodeInterface
+    interface_enabled = True
+    port = /dev/ttyACM0
+    frequency = 869525000
+    bandwidth = 250000
+    txpower = 0
+    spreadingfactor = 10
+    codingrate = 5
