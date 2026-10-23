@@ -7,12 +7,14 @@
   loglevel = 7
 
 [interfaces]
+  # NL/Munich community LoRa settings: 869.463 MHz, 125 kHz, SF8, CR5.
+  # All nodes on a network must use the same values.
   [[RNode RPI]]
     type = RNodeInterface
     interface_enabled = True
     port = /dev/ttyACM0
-    frequency = 869525000
-    bandwidth = 250000
-    txpower = 0
-    spreadingfactor = 10
+    frequency = 869463000
+    bandwidth = 125000
+    txpower = 20
+    spreadingfactor = 8
     codingrate = 5

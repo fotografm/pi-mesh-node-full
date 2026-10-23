@@ -79,10 +79,10 @@ if [ ! -f ~/.reticulum/config ]; then
     type = RNodeInterface
     interface_enabled = True
     port = /dev/ttyACM0
-    frequency = 869525000
-    bandwidth = 250000
-    txpower = 14
-    spreadingfactor = 10
+    frequency = 869463000
+    bandwidth = 125000
+    txpower = 20
+    spreadingfactor = 8
     codingrate = 5
 
   [[TCP Bootstrap EU]]
