@@ -1,0 +1,14 @@
+#!/bin/bash
+# one line of health readings, appended every 5 min by healthlog.timer
+LOG=/var/log/healthlog.log
+mem=$(awk '/MemAvailable/{a=$2} /SwapTotal/{t=$2} /SwapFree/{f=$2} END{printf "memavail=%dM swapused=%dM", a/1024, (t-f)/1024}' /proc/meminfo)
+temp=$(vcgencmd measure_temp | cut -d= -f2)
+thr=$(vcgencmd get_throttled | cut -d= -f2)
+load=$(cut -d" " -f1-3 /proc/loadavg)
+rss() { ps -eo rss=,args= | grep -F "$1" | grep -v grep | awk '{s+=$1} END{printf "%dM", s/1024}'; }
+procs="rnsd=$(rss bin/rnsd) rns-web=$(rss rns-web.py) rns-map=$(rss rns_map.py) landing=$(rss landing-server.py) sdr-ws=$(rss /sdr-ws)"
+echo "$(date '+%F %T') $mem temp=$temp throttled=$thr load=$load $procs" >> $LOG
+# keep about 2 months of lines
+if [ $(wc -l < $LOG) -gt 20000 ]; then
+  tail -n 17000 $LOG > $LOG.tmp && mv $LOG.tmp $LOG
+fi

@@ -318,6 +318,51 @@ sudo systemctl start rns-web
 sudo systemctl start sdr-ws
 
 # ===========================================================================
+# SECTION 12a — PI: Hang monitoring + hardware watchdog
+# ===========================================================================
+# A Pi Zero 2W with 425 MB RAM can hang while its Wi-Fi chip keeps
+# broadcasting the SSID. These three additions leave evidence after a
+# hang and make the Pi reboot itself instead of staying dead.
+#
+#   systemd/journald-persist.conf  journal survives reboots (20 MB cap,
+#                                  written every 30 s)
+#   systemd/watchdog.conf          BCM2835 hardware watchdog, reboots
+#                                  within ~15 s of a lockup
+#   healthlog + systemd/healthlog.{service,timer}
+#                                  every 5 min, one line in
+#                                  /var/log/healthlog.log: free memory,
+#                                  swap, temperature, throttle flags,
+#                                  load, memory per service
+#
+# From the desktop, in this repo (PI = user@10.42.0.1 over the hotspot,
+# or the Pi's ethernet IP as in section 13):
+PI=user@10.42.0.1
+scp healthlog systemd/healthlog.service systemd/healthlog.timer \
+    systemd/journald-persist.conf systemd/watchdog.conf $PI:/tmp/
+
+# On the Pi:
+cd /tmp
+sudo install -D -m644 journald-persist.conf /etc/systemd/journald.conf.d/persist.conf
+sudo install -D -m644 watchdog.conf /etc/systemd/system.conf.d/watchdog.conf
+sudo install -m755 healthlog /usr/local/bin/healthlog
+sudo install -m644 healthlog.service healthlog.timer /etc/systemd/system/
+sudo systemctl restart systemd-journald
+sudo systemctl daemon-reexec
+sudo systemctl enable --now healthlog.timer
+
+# Check:
+systemctl show -p RuntimeWatchdogUSec      # RuntimeWatchdogUSec=15s
+tail -3 /var/log/healthlog.log
+
+# After an unexpected restart:
+journalctl --list-boots                    # extra boot = it restarted
+last -x | head                             # no shutdown before a boot = hang
+journalctl -b -1 -e                        # end of the previous boot
+tail -30 /var/log/healthlog.log            # readings before the hang
+# The web UI's shutdown button shows as "POST /shutdown" in the
+# previous boot's journal; that is not a crash.
+
+# ===========================================================================
 # SECTION 13 — DESKTOP: Transfer files to Pi
 # ===========================================================================
 # Run these from the desktop after building the Rust binary.
@@ -374,6 +419,15 @@ ssh $PI "curl -s -o /dev/null -w '%{http_code} %{size_download}\n' http://10.42.
 #   ~/.reticulum/config           Reticulum interface config
 #   ~/lxmf-storage/identity       LXMF identity (auto-created, keep backup)
 #   ~/messages.db                 LXMF message history (SQLite)
+#   /usr/local/bin/healthlog      health readings script (section 12a)
+#   /etc/systemd/system/healthlog.{service,timer}
+#   /etc/systemd/journald.conf.d/persist.conf
+#   /etc/systemd/system.conf.d/watchdog.conf
+#   /var/log/healthlog.log        health readings (output)
+#
+# Waterfall speed: SEND_INTERVAL_MS in main.rs (80 ms = about 11.7
+# lines/s measured on a Zero 2W; 40 ms gave about 22.7). The HTML
+# page is embedded in the binary, so any change needs a rebuild.
 #
 # IMPORTANT: ~/lxmf-storage/identity contains your LXMF address.
 # Back it up — losing it means losing your address on the mesh.

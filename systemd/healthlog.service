@@ -1,0 +1,6 @@
+[Unit]
+Description=Append raspi20 health readings to /var/log/healthlog.log
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/healthlog

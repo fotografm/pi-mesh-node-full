@@ -38,7 +38,7 @@ const OUTPUT_BINS: usize   = 1024;
 const HTTP_PORT: u16       = 8080;
 const WS_PORT: u16         = 8081;
 const BROADCAST_CAP: usize = 8;
-const SEND_INTERVAL_MS: u64 = 40;        // 25 fps
+const SEND_INTERVAL_MS: u64 = 80;        // 12.5 fps (was 40 = 25 fps, halved 2026-10-23)
 const PROFILES_PATH: &str  = "./profiles.json";
 
 // ── Embedded HTML page ────────────────────────────────────────────────────────
