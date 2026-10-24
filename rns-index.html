@@ -62,6 +62,14 @@ body {
     cursor: pointer;
     user-select: all;
 }
+/* Node name: big and bright green, like the noise-floor reading */
+#my-name {
+    font-size: 14px;
+    color: #66dd66;
+    font-weight: bold;
+    letter-spacing: 1px;
+    vertical-align: middle;
+}
 #status-dot {
     width: 8px;
     height: 8px;
@@ -78,13 +86,12 @@ body {
     overflow: hidden;
 }
 
-/* ── Left panel: announces ───────────────────────────────────────────────── */
+/* ── Single full-width panel: announces (top 3/4), messages (bottom 1/4) ─── */
 #announces-panel {
-    width: 340px;
-    flex-shrink: 0;
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border);
 }
 #announces-panel h2 {
     padding: 6px 10px;
@@ -97,7 +104,8 @@ body {
     flex-shrink: 0;
 }
 #announces-list {
-    flex: 1;
+    flex: 3;
+    min-height: 0;
     overflow-y: auto;
 }
 .announce-row {
@@ -187,12 +195,14 @@ body {
     color: var(--green);
 }
 
-/* ── Right panel: messages ───────────────────────────────────────────────── */
+/* ── Messages: under the announces list, above Announce Now ──────────────── */
 #messages-panel {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    border-top: 1px solid var(--border);
 }
 #conv-header {
     padding: 6px 12px;
@@ -305,7 +315,7 @@ body {
     <h1>RNS Live</h1>
     <div id="my-addr">
         <span class="hash-val" id="my-hash" title="Click to copy full address">&#8212;</span>
-        &nbsp;&middot;&nbsp;<span id="my-name" style="color:var(--accent)">&#8212;</span>
+        &nbsp;&middot;&nbsp;<span id="my-name">&#8212;</span>
     </div>
     <div id="status-dot" title="WebSocket status"></div>
 </div>
@@ -318,12 +328,8 @@ body {
         <div id="announces-list">
             <div class="no-conv">Waiting for announces&#8230;</div>
         </div>
-        <div id="ann-footer">
-            <button id="announce-btn">&#x1F4E1; Announce Now</button>
-        </div>
-    </div>
 
-    <!-- Right panel: messages -->
+    <!-- Messages: below the announces list -->
     <div id="messages-panel">
         <div id="conv-header">
             <span>Messages</span>
@@ -335,6 +341,11 @@ body {
         <div id="compose">
             <textarea id="compose-input" placeholder="Select a node first&#8230;" disabled></textarea>
             <button id="send-btn" disabled>Send</button>
+        </div>
+    </div>
+
+        <div id="ann-footer">
+            <button id="announce-btn">&#x1F4E1; Announce Now</button>
         </div>
     </div>
 
