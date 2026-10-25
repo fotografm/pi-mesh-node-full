@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """textsize-inline.py - copy textsize.js into the pages whose server has no
 route for it: sdr-index.html (compiled into sdr-ws, rebuild after) and
-rns-map/static/index.html (+ rnsmap-zoomfix.js). Rerun after editing
+rns-map/static/index.html (+ rnsmap-zoomfix.js, + the hostname in green
+before RNS LIVE). Rerun after editing
 textsize.js; the block between the markers is replaced each time."""
 import re
 from pathlib import Path
@@ -15,6 +16,9 @@ for page, extra in (("sdr-index.html", ""),
     p = D / page
     s = p.read_text()
     s = re.sub(r"\n?" + re.escape(BEGIN) + ".*?" + re.escape(END), "", s, flags=re.S)
+    if page.startswith("rns-map") and "<div>RNS LIVE<" in s:  # hostname in green
+        s = s.replace("<div>RNS LIVE<", '<div><span style="color:#66dd66;font-weight:bold;'
+                      'font-size:18px;letter-spacing:1px">raspi20</span> RNS LIVE<')
     assert s.count("</body>") == 1, page
     block = BEGIN + "\n<script>\n" + JS + extra + "</script>\n" + END + "\n"
     p.write_text(s.replace("</body>", block + "</body>"))

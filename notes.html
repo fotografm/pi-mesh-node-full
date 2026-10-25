@@ -278,12 +278,13 @@ mark {
     transition: border-color 0.15s;
 }
 #back-btn:hover { border-color: var(--border); color: var(--text); }
+.host { color:#66dd66; font-weight:bold; font-size:18px; letter-spacing:1px; text-transform:none; vertical-align:middle; }  /* hostname, same on every page */
 </style>
 </head>
 <body>
 
 <div id="titlebar">
-    <h1>raspi20 — Notes</h1>
+    <h1><span class="host">raspi20</span> Notes</h1>
     <div id="search-wrap">
         <input id="search" type="text" placeholder="Search…"
                oninput="onSearch(this.value)" autocomplete="off" spellcheck="false">

@@ -946,6 +946,7 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font
     flex-shrink: 0;
 }
 #titlebar span { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
+#titlebar span.host { color: #66dd66; font-weight: bold; font-size: 18px; letter-spacing: 1px; text-transform: none; }
 #conn-status { font-size: 10px; color: #444; }
 #term-container {
     position: absolute;
@@ -956,7 +957,7 @@ html, body { background: #000; width: 100%; height: 100%; overflow: hidden; font
 </head>
 <body>
 <div id="titlebar">
-    <span>Terminal - raspi20</span>
+    <span><span class="host">raspi20</span> Terminal</span>
     <span id="conn-status">connecting...</span>
 </div>
 <div id="term-container"></div>

@@ -188,6 +188,14 @@ It uses CSS `zoom` on `<html>`. Under CSS zoom `100vh` is zoomed as well,
 so full-height pages use `height: calc(100vh / var(--pz, 1))`; textsize.js
 sets `--pz` to the zoom factor.
 
+### Hostname on every page
+
+Every page starts with **raspi20** in 18 px bold bright green (`#66dd66`,
+CSS class `.host`), then the page name: landing, notes, RNS page (node name
+top right), waterfall (`sdr-index.html`, rebuild sdr-ws after a change),
+terminal (in `rns-web.py`) and node map (`textsize-inline.py` adds it before
+"RNS LIVE").
+
 ### Node map — rns_map.py, port 8086 (optional)
 
 A live "dartboard" map of the Reticulum network as seen from this node. It uses four separate announce handlers, so each node is classified correctly:

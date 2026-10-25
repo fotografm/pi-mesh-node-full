@@ -20,6 +20,7 @@ body {
 }
 
 /* ── Title ───────────────────────────────────────────────────────────────── */
+#title .host { font-size: 22px; letter-spacing: 2px; }
 #title {
     font-size: 11px;
     letter-spacing: 6px;
@@ -217,11 +218,12 @@ body {
 .modal-btn-reboot { border-color: #2a5a2a; color: #55cc55; }
 .modal-btn-reboot:hover { background: #081a08; }
 #shutdown-countdown { font-size: 11px; color: #999; min-height: 16px; }
+.host { color:#66dd66; font-weight:bold; font-size:18px; letter-spacing:1px; text-transform:none; vertical-align:middle; }  /* hostname, same on every page */
 </style>
 </head>
 <body>
 
-<div id="title">raspi20</div>
+<div id="title"><span class="host">raspi20</span></div>
 
 <div id="clock">
     <div id="clock-time">00:00:00</div>
