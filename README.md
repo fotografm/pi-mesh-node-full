@@ -165,6 +165,29 @@ Only **one terminal session** at a time is allowed. A second browser gets "Termi
 
 The xterm.js files are downloaded once during setup into the home folder, so the terminal works without internet.
 
+### Page size control — every page
+
+Brave/Chrome keep ONE zoom level per host and ignore the port, so zooming
+the waterfall also zoomed the landing page, the RNS page and the terminal.
+Every page therefore has its own small **A− 100% A+** control (bottom right;
+click the % for 100 %). The size is kept in the browser's localStorage, which
+IS separate per port, so each page keeps its own size. Leave the browser's
+own zoom at 100 %.
+
+All of it comes from one file, `textsize.js` (keep it ASCII only):
+
+| Page | How it gets the control |
+|---|---|
+| Landing + notes, :80 | `<script src="/textsize.js">`, served by landing-server.py from `~/textsize.js` (same port, so same size) |
+| RNS page :8082, terminal :8087 | rns-web.py serves `~/textsize.js`. The terminal changes xterm's font size and refits instead of zooming. |
+| Waterfall :8080 | Copied into `sdr-index.html` by `textsize-inline.py` (the page is compiled into sdr-ws) |
+| Node map :8086 | Copied into `rns-map/static/index.html` by `textsize-inline.py`, with `rnsmap-zoomfix.js` (keeps the hover tooltip at the mouse) |
+| Combined :8084 | No control of its own; each pane has its own |
+
+It uses CSS `zoom` on `<html>`. Under CSS zoom `100vh` is zoomed as well,
+so full-height pages use `height: calc(100vh / var(--pz, 1))`; textsize.js
+sets `--pz` to the zoom factor.
+
 ### Node map — rns_map.py, port 8086 (optional)
 
 A live "dartboard" map of the Reticulum network as seen from this node. It uses four separate announce handlers, so each node is classified correctly:
@@ -239,6 +262,7 @@ A live "dartboard" map of the Reticulum network as seen from this node. It uses 
 | `rns-index.html` | LXMF chat and announces page |
 | `landing-server.py`, `landing.html` | Port 80 landing page and its server |
 | `notes.html` | Keep-style notes app |
+| `textsize.js`, `textsize-inline.py`, `rnsmap-zoomfix.js` | Page size control (see [Page size control](#page-size-control--every-page)); copy `textsize.js` to `~/` on the Pi |
 | `rns-map/` | Node map: `rns_map.py`, its page in `static/`, `rns-map.service` |
 | `reticulum/config.example` | Reticulum config layout |
 | `systemd/` | Service units: `rnsd`, `rns-web`, `sdr-ws`, `landing`, `rns-map`, and the monitoring units |
@@ -299,6 +323,7 @@ A live "dartboard" map of the Reticulum network as seen from this node. It uses 
 | LoRa radio settings | `~/.reticulum/config` | `sudo systemctl restart rnsd rns-web` |
 | Node name, announce interval | `DISPLAY_NAME`, `ANNOUNCE_INTERVAL` in `rns-web.py` | `sudo systemctl restart rns-web` |
 | Landing page buttons | `landing.html` | Reload the page |
+| Page size control | `textsize.js`, then `./textsize-inline.py` | Copy `textsize.js` to `~/` and `rns-map/static/index.html` to `~/rns-map/static/`; rebuild sdr-ws |
 
 **Deploying a rebuilt sdr-ws, keeping the old one:**
 ```

@@ -35,7 +35,7 @@ body {
     color: var(--text);
     font-family: monospace;
     font-size: 14px;
-    height: 100vh;
+    height: calc(100vh / var(--pz, 1));  /* --pz: textsize.js */
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -482,5 +482,6 @@ fetch('/api/notes')
     })
     .catch(() => {});
 </script>
+<script src="/textsize.js"></script>
 </body>
 </html>

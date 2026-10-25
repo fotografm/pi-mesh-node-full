@@ -5,6 +5,7 @@ Serves landing.html and notes.html on port 80.
 Handles:
   GET  /           -> landing.html
   GET  /notes.html -> notes.html
+  GET  /textsize.js -> page size control (A- 100% A+)
   GET  /notes      -> plain text quick note
   POST /notes      -> save plain text quick note
   GET  /api/notes  -> JSON array of all Keep-style notes
@@ -110,6 +111,13 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 
         elif method == "GET" and path == "/notes.html":
             ok_html(writer, SERVE_DIR / "notes.html")
+
+        elif method == "GET" and path == "/textsize.js":
+            try:
+                resp(writer, "200 OK", "application/javascript",
+                     (SERVE_DIR / "textsize.js").read_bytes())
+            except FileNotFoundError:
+                not_found(writer)
 
         # ── Quick notepad (single text file) ─────────────────────────────
         elif method == "GET" and path == "/notes":

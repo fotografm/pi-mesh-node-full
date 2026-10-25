@@ -539,6 +539,7 @@ STATIC_FILES = {
     "/xterm.js":       ("application/javascript", Path("/home/user/xterm.min.js")),
     "/xterm.css":      ("text/css",               Path("/home/user/xterm.min.css")),
     "/addon-fit.js":   ("application/javascript", Path("/home/user/addon-fit.min.js")),
+    "/textsize.js":    ("application/javascript", Path("/home/user/textsize.js")),
 }
 
 async def http_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -1013,6 +1014,15 @@ term.onData(function(d) {
 });
 connect();
 </script>
+<script>
+// Size control: change xterm's font size (zooming the page breaks xterm's
+// cell measurements), then refit and tell the server the new cols/rows.
+window.PAGEZOOM_APPLY = function(f) {
+    term.options.fontSize = Math.round(13 * f);
+    fitAddon.fit(); sendResize();
+};
+</script>
+<script src="/textsize.js"></script>
 </body>
 </html>
 """
